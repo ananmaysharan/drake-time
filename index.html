@@ -15,6 +15,16 @@
       type="text/css"
       href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css"
     />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css"
+    />
+        <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/bold/style.css"
+    />
 </head>
 
 <body>
@@ -65,6 +75,10 @@
     <div id="settings-panel">
         <div id="settings-glass"></div>
         <div id="settings-content">
+            <div class="setting-row setting-row-clickable" id="setting-change-location">
+                <span class="setting-label">Change Location</span>
+                <i class="ph ph-arrow-right"></i>
+            </div>
             <div class="setting-row">
                 <span class="setting-label">Exact Time</span>
                 <label class="switch">
@@ -103,7 +117,7 @@
             <div class="time-travel-row">
                 <span class="time-travel-label" id="time-travel-label">Time Travel</span>
                 <input type="range" id="debug-slider" min="0" max="23" value="0">
-                <button id="time-travel-done">Done</button>
+                <button id="time-travel-done"><span class="done-text">Done</span><i class="ph-bold ph-check done-icon"></i></button>
             </div>
         </div>
     </div>
@@ -154,6 +168,8 @@
             if (saved) {
                 settings = { ...settings, ...JSON.parse(saved) };
             }
+            // Always reset time travel to off on page load
+            settings.timeTravel = false;
             applySettingsToUI();
         }
 
@@ -396,6 +412,8 @@
         async function selectCity(cityData) {
             city = cityData.name;
             country = cityData.countryName;
+            // Reset time travel mode when city changes
+            debugMode = false;
             // Try to get timezone from search result, otherwise fetch it
             if (cityData.timezone && cityData.timezone.timeZoneId) {
                 selectedTimezone = cityData.timezone.timeZoneId;
@@ -573,6 +591,12 @@
 
         document.getElementById('settings-btn').addEventListener('click', toggleSettings);
 
+        // Change Location button
+        document.getElementById('setting-change-location').addEventListener('click', () => {
+            closeSettings();
+            openCitySearch();
+        });
+
         // Close settings on outside click
         document.addEventListener('click', (e) => {
             if (isSettingsOpen &&
@@ -612,9 +636,12 @@
         function closeTimeTravel() {
             isTimeTravelOpen = false;
             document.getElementById('time-travel-panel').classList.remove('visible');
+            debugMode = false;
             settings.timeTravel = false;
             document.getElementById('setting-time-travel').checked = false;
             saveSettings();
+            updateTimeTravelSlider();
+            updateDisplay();
         }
 
         document.getElementById('setting-time-travel').addEventListener('change', (e) => {
@@ -629,11 +656,6 @@
 
         // Done button closes time travel panel
         document.getElementById('time-travel-done').addEventListener('click', closeTimeTravel);
-
-        // Apply time travel state on load
-        if (settings.timeTravel) {
-            openTimeTravel();
-        }
 
         init();
     </script>
