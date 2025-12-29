@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drake Clock</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png">
+    <link rel="manifest" href="assets/favicon/site.webmanifest">
+    <link rel="stylesheet" href="styles.css">
+        <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css"
+    />
+</head>
+
+<body>
+    <div id="background"></div>
+    <div id="blur-overlay"></div>
+    <img id="drake" src="drake.png" alt="Drake">
+    <div id="time-text">
+        <span id="time-prefix"></span><span id="city-name-container"><span id="city-name"></span>
+            <div id="city-dropdown"></div>
+        </span>
+    </div>
+
+    <!-- Liquid Glass SVG Filter -->
+    <svg color-interpolation-filters="sRGB" style="display: none">
+        <defs>
+            <filter id="liquid-glass-filter">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blurred"></feGaussianBlur>
+                <feColorMatrix in="blurred" type="saturate" values="1.2" result="saturated"></feColorMatrix>
+            </filter>
+        </defs>
+    </svg>
+
+    <div id="music-player">
+        <div id="music-player-glass"></div>
+        <div id="music-player-content">
+            <div id="song-container">
+                <img id="player-album" src="" alt="Album">
+                <div id="player-info">
+                    <div id="player-title"></div>
+                    <div id="player-artist"></div>
+                </div>
+            </div>
+            <div id="controls-container">
+            <button id="player-toggle">
+                <i class="ph-fill ph-pause pause-icon"></i>
+                <i class="ph-fill ph-play play-icon"></i>
+            </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Button -->
+    <button id="settings-btn">
+        <i class="ph-fill ph-gear"></i>
+    </button>
+
+    <!-- Settings Panel -->
+    <div id="settings-panel">
+        <div id="settings-glass"></div>
+        <div id="settings-content">
+            <div class="setting-row">
+                <span class="setting-label">Exact Time</span>
+                <label class="switch">
+                    <input type="checkbox" id="setting-exact-time">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Time Travel</span>
+                <label class="switch">
+                    <input type="checkbox" id="setting-time-travel">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Temperature</span>
+                <label class="switch">
+                    <input type="checkbox" id="setting-temperature">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label"><i class="ph-fill ph-music-notes"></i>Easter Eggs</span>
+                <label class="switch">
+                    <input type="checkbox" id="setting-music-easter-eggs" checked>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Time Travel Debug -->
+    <div id="time-travel-panel">
+        <div id="time-travel-glass"></div>
+        <div id="time-travel-content">
+            <div class="time-travel-row">
+                <span class="time-travel-label" id="time-travel-label">Time Travel</span>
+                <input type="range" id="debug-slider" min="0" max="23" value="0">
+                <button id="time-travel-done">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GEONAMES_USERNAME = 'ananmay01'; // Replace with your GeoNames username
+
+        // Easter egg songs mapping: { hour, city, country } -> song path
+        const easterEggSongs = [
+            { hour: 16, city: 'calabasas', country: 'united states', song: 'songs/Drake - 4pm in Calabasas.mp3' },
+            { hour: 5, city: 'toronto', country: 'canada', song: 'songs/Drake - 5 Am in Toronto.mp3' },
+            { hour: 18, city: 'new york', country: 'united states', song: 'songs/Drake - 6PM In New York.mp3' },
+            { hour: 7, city: 'bridle path', country: 'canada', song: 'songs/Drake - 7am On Bridle Path.mp3' },
+            { hour: 8, city: 'charlotte', country: 'united states', song: 'songs/Drake - 8am in Charlotte.mp3' },
+            { hour: 9, city: 'dallas', country: 'united states', song: 'songs/Drake - 9am In Dallas.mp3' }
+        ];
+
+        // Song metadata for player UI
+        const songMetadata = {
+            'songs/Drake - 4pm in Calabasas.mp3': { title: '4pm in Calabasas', artist: 'Drake', art: 'album-art/4pm-in-calabasas.jpg' },
+            'songs/Drake - 5 Am in Toronto.mp3': { title: '5 Am in Toronto', artist: 'Drake', art: 'album-art/5am-in-toronto.jpg' },
+            'songs/Drake - 6PM In New York.mp3': { title: '6PM In New York', artist: 'Drake', art: 'album-art/6pm-in-new-york.jpg' },
+            'songs/Drake - 7am On Bridle Path.mp3': { title: '7am On Bridle Path', artist: 'Drake', art: 'album-art/7am-on-bridle-path.jpg' },
+            'songs/Drake - 8am in Charlotte.mp3': { title: '8am in Charlotte', artist: 'Drake', art: 'album-art/8am-in-charlotte.jpg' },
+            'songs/Drake - 9am In Dallas.mp3': { title: '9am In Dallas', artist: 'Drake', art: 'album-art/9am-in-dallas.jpg' }
+        };
+
+        let city = null;
+        let country = null;
+        let selectedTimezone = null; // null means use local time
+        let debugMode = false;
+        let debugHour = 0;
+        let audioPlayer = null;
+        let currentSongPath = null;
+
+        // Settings state
+        let settings = {
+            exactTime: false,
+            temperature: false,
+            musicEasterEggs: true,
+            timeTravel: false
+        };
+        let isSettingsOpen = false;
+        let isTimeTravelOpen = false;
+
+        function loadSettings() {
+            const saved = localStorage.getItem('drakeClockSettings');
+            if (saved) {
+                settings = { ...settings, ...JSON.parse(saved) };
+            }
+            applySettingsToUI();
+        }
+
+        function saveSettings() {
+            localStorage.setItem('drakeClockSettings', JSON.stringify(settings));
+        }
+
+        function applySettingsToUI() {
+            document.getElementById('setting-exact-time').checked = settings.exactTime;
+            document.getElementById('setting-temperature').checked = settings.temperature;
+            document.getElementById('setting-music-easter-eggs').checked = settings.musicEasterEggs;
+            document.getElementById('setting-time-travel').checked = settings.timeTravel;
+        }
+
+        function getBackground(hour) {
+            if (hour >= 6 && hour <= 11) return 'bgs/morning.png';
+            if (hour >= 12 && hour <= 17) return 'bgs/day.png';
+            if (hour >= 18 && hour <= 20) return 'bgs/evening.png';
+            return 'bgs/night.png';
+        }
+
+        function formatTime(hour, minutes) {
+            if (settings.exactTime && minutes !== undefined) {
+                const period = hour >= 12 ? 'pm' : 'am';
+                const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+                return `${displayHour}:${minutes.toString().padStart(2, '0')}${period}`;
+            }
+            if (hour === 0 || hour === 24) return '12am';
+            if (hour === 12) return '12pm';
+            if (hour < 12) return hour + 'am';
+            return (hour - 12) + 'pm';
+        }
+
+        function roundToNearestHour(date) {
+            const minutes = date.getMinutes();
+            let hour = date.getHours();
+            if (minutes >= 30) hour = (hour + 1) % 24;
+            return hour;
+        }
+
+        function getTimeForTimezone(timezone) {
+            const date = new Date();
+            const options = { hour: 'numeric', minute: 'numeric', hour12: false, timeZone: timezone };
+            const parts = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
+            const hour = parseInt(parts.find(p => p.type === 'hour').value);
+            const minute = parseInt(parts.find(p => p.type === 'minute').value);
+            if (settings.exactTime) {
+                return { hour, minutes: minute };
+            }
+            // Round to nearest hour
+            const roundedHour = minute >= 30 ? (hour + 1) % 24 : hour;
+            return { hour: roundedHour, minutes: undefined };
+        }
+
+        function getCurrentTime() {
+            if (debugMode) {
+                return { hour: debugHour, minutes: 0 };
+            }
+            if (selectedTimezone) {
+                return getTimeForTimezone(selectedTimezone);
+            }
+            const date = new Date();
+            if (settings.exactTime) {
+                return { hour: date.getHours(), minutes: date.getMinutes() };
+            }
+            return { hour: roundToNearestHour(date), minutes: undefined };
+        }
+
+        // Easter egg functions
+        function checkEasterEgg(hour, cityName, countryName) {
+            if (!cityName || !countryName) return;
+
+            // If music easter eggs disabled, stop any playing and return
+            if (!settings.musicEasterEggs) {
+                stopEasterEgg();
+                return;
+            }
+
+            const cityLower = cityName.toLowerCase();
+            const countryLower = countryName.toLowerCase();
+
+            // Check for matching song (must match hour, city, AND country)
+            for (const egg of easterEggSongs) {
+                if (egg.hour === hour &&
+                    cityLower.includes(egg.city) &&
+                    countryLower.includes(egg.country)) {
+                    playEasterEgg(egg.song);
+                    return;
+                }
+            }
+
+            // No match, stop any playing song
+            stopEasterEgg();
+        }
+
+        function showMusicPlayer(songPath) {
+            const metadata = songMetadata[songPath];
+            document.getElementById('player-album').src = metadata.art;
+            document.getElementById('player-title').textContent = metadata.title;
+            document.getElementById('player-artist').textContent = metadata.artist;
+            document.getElementById('player-toggle').classList.remove('paused');
+            document.getElementById('music-player').classList.add('visible');
+        }
+
+        function hideMusicPlayer() {
+            document.getElementById('music-player').classList.remove('visible');
+        }
+
+        function playEasterEgg(songPath) {
+            // Already playing this song
+            if (currentSongPath === songPath && audioPlayer && !audioPlayer.paused) return;
+
+            stopEasterEgg();
+            audioPlayer = new Audio(songPath);
+            audioPlayer.play();
+            currentSongPath = songPath;
+            showMusicPlayer(songPath);
+
+            // Hide when song ends
+            audioPlayer.addEventListener('ended', hideMusicPlayer);
+        }
+
+        function stopEasterEgg() {
+            if (audioPlayer) {
+                audioPlayer.pause();
+                audioPlayer = null;
+                currentSongPath = null;
+                hideMusicPlayer();
+            }
+        }
+
+        let currentBg = 'bgs/day.png';
+
+        function updateDisplay() {
+            const time = getCurrentTime();
+            const hour = time.hour;
+            const bg = document.getElementById('background');
+            const newBg = getBackground(hour);
+
+            if (newBg !== currentBg) {
+                // Crossfade: set new image on ::after, fade it in, then swap
+                const afterStyle = window.getComputedStyle(bg, '::after');
+                bg.style.setProperty('--next-bg', `url('${newBg}')`);
+
+                // Use a temp style element to update ::after background
+                const styleId = 'bg-transition-style';
+                let styleEl = document.getElementById(styleId);
+                if (!styleEl) {
+                    styleEl = document.createElement('style');
+                    styleEl.id = styleId;
+                    document.head.appendChild(styleEl);
+                }
+
+                styleEl.textContent = `#background::after { background-image: url('${newBg}'); opacity: 1; }`;
+
+                setTimeout(() => {
+                    bg.style.backgroundImage = `url('${newBg}')`;
+                    styleEl.textContent = `#background::after { opacity: 0; }`;
+                    currentBg = newBg;
+                }, 1000);
+            }
+
+            if (city) {
+                document.getElementById('time-prefix').textContent = `It's ${formatTime(hour, time.minutes)} in `;
+                document.getElementById('city-name').textContent = city;
+
+                // Check for easter egg
+                checkEasterEgg(hour, city, country);
+            }
+        }
+
+        async function getLocation(lat, lon) {
+            try {
+                const response = await fetch(
+                    `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+                );
+                const data = await response.json();
+                return {
+                    city: data.city || data.locality || data.principalSubdivision || 'Unknown',
+                    country: data.countryName || 'Unknown'
+                };
+            } catch (error) {
+                console.error('Failed to get location:', error);
+                return { city: 'Unknown', country: 'Unknown' };
+            }
+        }
+
+        function init() {
+            loadSettings();
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const location = await getLocation(position.coords.latitude, position.coords.longitude);
+                        city = location.city;
+                        country = location.country;
+                        updateDisplay();
+                    },
+                    (error) => {
+                        console.error('Geolocation error:', error);
+                        city = 'Unknown';
+                        country = 'Unknown';
+                        updateDisplay();
+                    }
+                );
+            } else {
+                city = 'Unknown';
+                country = 'Unknown';
+                updateDisplay();
+            }
+        }
+
+        // City search
+        async function searchCities(query) {
+            if (!query || query.length < 2) return [];
+            try {
+                const response = await fetch(
+                    `https://secure.geonames.org/searchJSON?q=${encodeURIComponent(query)}&maxRows=5&username=${GEONAMES_USERNAME}&featureClass=P&style=FULL`
+                );
+                const data = await response.json();
+                return data.geonames || [];
+            } catch (error) {
+                console.error('City search failed:', error);
+                return [];
+            }
+        }
+
+        async function getTimezone(lat, lng) {
+            try {
+                const response = await fetch(
+                    `https://secure.geonames.org/timezoneJSON?lat=${lat}&lng=${lng}&username=${GEONAMES_USERNAME}`
+                );
+                const data = await response.json();
+                return data.timezoneId;
+            } catch (error) {
+                console.error('Timezone lookup failed:', error);
+                return null;
+            }
+        }
+
+        async function selectCity(cityData) {
+            city = cityData.name;
+            country = cityData.countryName;
+            // Try to get timezone from search result, otherwise fetch it
+            if (cityData.timezone && cityData.timezone.timeZoneId) {
+                selectedTimezone = cityData.timezone.timeZoneId;
+            } else {
+                selectedTimezone = await getTimezone(cityData.lat, cityData.lng);
+            }
+            closeCitySearch();
+            updateDisplay();
+            updateTimeTravelSlider();
+        }
+
+        let isSearchMode = false;
+        let cityInput = null;
+
+        function openCitySearch() {
+            isSearchMode = true;
+            document.body.classList.add('search-mode');
+            document.getElementById('blur-overlay').classList.add('active');
+
+            // Create input overlaying the city name
+            const cityNameEl = document.getElementById('city-name');
+            const container = document.getElementById('city-name-container');
+
+            cityInput = document.createElement('input');
+            cityInput.type = 'text';
+            cityInput.id = 'city-input';
+            cityInput.value = city || '';
+            cityInput.placeholder = '...';
+            cityInput.autocomplete = 'off';
+
+            container.appendChild(cityInput);
+
+            cityInput.focus();
+            cityInput.select();
+
+            // Clear dropdown
+            document.getElementById('city-dropdown').innerHTML = '';
+
+            // Add input listener
+            cityInput.addEventListener('input', handleCityInput);
+            cityInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeCitySearch();
+            });
+        }
+
+        function closeCitySearch() {
+            isSearchMode = false;
+            document.body.classList.remove('search-mode');
+            document.getElementById('blur-overlay').classList.remove('active');
+
+            // Remove input
+            if (cityInput) {
+                cityInput.remove();
+                cityInput = null;
+            }
+            document.getElementById('city-dropdown').innerHTML = '';
+        }
+
+        let searchTimeout;
+        let isLoading = false;
+
+        function handleCityInput(e) {
+            clearTimeout(searchTimeout);
+            const query = e.target.value;
+
+            if (query.length < 2) {
+                document.getElementById('city-dropdown').innerHTML = '';
+                return;
+            }
+
+            // Show loading
+            isLoading = true;
+            document.getElementById('city-dropdown').innerHTML = '<div class="city-loading">...</div>';
+
+            searchTimeout = setTimeout(async () => {
+                const cities = await searchCities(query);
+                isLoading = false;
+                renderDropdown(cities);
+            }, 300);
+        }
+
+        function renderDropdown(cities) {
+            const dropdown = document.getElementById('city-dropdown');
+            dropdown.innerHTML = '';
+
+            if (cities.length === 0 && !isLoading) {
+                return;
+            }
+
+            cities.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'city-option';
+                div.textContent = `${c.name}, ${c.countryName}`;
+                div.addEventListener('click', () => selectCity(c));
+                dropdown.appendChild(div);
+            });
+        }
+
+        // Event listeners
+        document.getElementById('city-name').addEventListener('click', openCitySearch);
+
+        document.getElementById('blur-overlay').addEventListener('click', () => {
+            closeCitySearch();
+            closeSettings();
+        });
+
+        // Play/Pause toggle button
+        const playerToggle = document.getElementById('player-toggle');
+        playerToggle.addEventListener('click', () => {
+            if (audioPlayer) {
+                if (audioPlayer.paused) {
+                    audioPlayer.play();
+                    playerToggle.classList.remove('paused');
+                } else {
+                    audioPlayer.pause();
+                    playerToggle.classList.add('paused');
+                }
+            }
+        });
+
+        // Time Travel slider
+        const slider = document.getElementById('debug-slider');
+        const label = document.getElementById('time-travel-label');
+
+        function updateTimeTravelSlider() {
+            if (slider && label && !debugMode) {
+                let currentHour;
+                if (selectedTimezone) {
+                    currentHour = getTimeForTimezone(selectedTimezone).hour;
+                } else {
+                    currentHour = roundToNearestHour(new Date());
+                }
+                slider.value = currentHour;
+                label.textContent = `Time Travel: ${formatTime(currentHour)}`;
+            }
+        }
+
+        if (slider && label) {
+            // Set initial slider position to rounded current hour
+            updateTimeTravelSlider();
+
+            slider.addEventListener('input', (e) => {
+                debugMode = true;
+                debugHour = parseInt(e.target.value);
+                label.textContent = `Time Travel: ${formatTime(debugHour)}`;
+                updateDisplay();
+            });
+        }
+
+        // Update every minute
+        setInterval(() => {
+            if (!debugMode) updateDisplay();
+        }, 60000);
+
+        // Settings panel toggle
+        function openSettings() {
+            isSettingsOpen = true;
+            document.body.classList.add('settings-mode');
+            document.getElementById('settings-panel').classList.add('visible');
+            document.getElementById('blur-overlay').classList.add('active');
+        }
+
+        function closeSettings() {
+            isSettingsOpen = false;
+            document.body.classList.remove('settings-mode');
+            document.getElementById('settings-panel').classList.remove('visible');
+            document.getElementById('blur-overlay').classList.remove('active');
+        }
+
+        function toggleSettings(e) {
+            e.stopPropagation();
+            if (isSettingsOpen) closeSettings();
+            else openSettings();
+        }
+
+        document.getElementById('settings-btn').addEventListener('click', toggleSettings);
+
+        // Close settings on outside click
+        document.addEventListener('click', (e) => {
+            if (isSettingsOpen &&
+                !e.target.closest('#settings-panel') &&
+                !e.target.closest('#settings-btn')) {
+                closeSettings();
+            }
+        });
+
+        // Settings event listeners
+        document.getElementById('setting-exact-time').addEventListener('change', (e) => {
+            settings.exactTime = e.target.checked;
+            saveSettings();
+            updateDisplay();
+        });
+
+        document.getElementById('setting-temperature').addEventListener('change', (e) => {
+            settings.temperature = e.target.checked;
+            saveSettings();
+            // Does nothing for now
+        });
+
+        document.getElementById('setting-music-easter-eggs').addEventListener('change', (e) => {
+            settings.musicEasterEggs = e.target.checked;
+            saveSettings();
+            if (!settings.musicEasterEggs) {
+                stopEasterEgg();
+            }
+        });
+
+        // Time Travel panel toggle
+        function openTimeTravel() {
+            isTimeTravelOpen = true;
+            document.getElementById('time-travel-panel').classList.add('visible');
+        }
+
+        function closeTimeTravel() {
+            isTimeTravelOpen = false;
+            document.getElementById('time-travel-panel').classList.remove('visible');
+            settings.timeTravel = false;
+            document.getElementById('setting-time-travel').checked = false;
+            saveSettings();
+        }
+
+        document.getElementById('setting-time-travel').addEventListener('change', (e) => {
+            settings.timeTravel = e.target.checked;
+            saveSettings();
+            if (settings.timeTravel) {
+                openTimeTravel();
+            } else {
+                closeTimeTravel();
+            }
+        });
+
+        // Done button closes time travel panel
+        document.getElementById('time-travel-done').addEventListener('click', closeTimeTravel);
+
+        // Apply time travel state on load
+        if (settings.timeTravel) {
+            openTimeTravel();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
