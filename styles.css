@@ -41,7 +41,7 @@ body {
     left: 52%;
     transform: translateX(-52%);
     width: auto;
-    height: 80%;
+    height: 75%;
     pointer-events: none;
     transition: cubic-bezier(0.075, 0.82, 0.165, 1) 0.5s;
 
@@ -82,6 +82,32 @@ body {
 
 body.search-mode #time-prefix {
     opacity: 0.2;
+}
+
+/* Temperature Display */
+#temperature-display {
+    position: absolute;
+    top: calc(8% + 4rem);
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    font-size: 2rem;
+    font-weight: 500;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    cursor: pointer;
+}
+
+#temperature-display.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Temperature above blur in settings mode */
+body.settings-mode #temperature-display {
+    z-index: 200;
 }
 
 /* Blur overlay */
@@ -366,7 +392,7 @@ body.search-mode #city-dropdown {
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
 
 .setting-row {
@@ -386,7 +412,7 @@ body.search-mode #city-dropdown {
 
 .setting-row-clickable {
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 12px;
     margin: -8px;
     padding: 8px;
     transition: background-color 0.2s ease;
@@ -455,6 +481,55 @@ input:checked + .slider:before {
 
 .slider.round:before {
     border-radius: 50%;
+}
+
+/* Unit Pill Toggle */
+.setting-unit-row {
+    display: none;
+}
+
+.setting-unit-row.visible {
+    display: flex;
+}
+
+.pill-toggle {
+    position: relative;
+    display: flex;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 14px;
+    padding: 2px;
+}
+
+.pill-option {
+    position: relative;
+    z-index: 1;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.pill-option.active {
+    color: white;
+}
+
+.pill-indicator {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: calc(50% - 2px);
+    height: calc(100% - 4px);
+    background: #2196F3;
+    border-radius: 12px;
+    transition: transform 0.3s ease;
+}
+
+.pill-toggle[data-selected="F"] .pill-indicator {
+    transform: translateX(100%);
 }
 
 /* Time Travel Panel */
@@ -564,16 +639,186 @@ input:checked + .slider:before {
     background-color: #1976D2;
 }
 
+/* Credit */
+#credit {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 400;
+    opacity: 0.7;
+    z-index: 100;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 8px;
+}
+
+#credit-text a {
+    color: white;
+    text-decoration: underline;
+    transition: opacity 0.2s ease;
+}
+
+#credit-text a:hover {
+    opacity: 0.8;
+}
+
+#credit-info-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    cursor: pointer;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.2s ease;
+    color: white;
+}
+
+#credit-info-btn:hover {
+    transform: scale(1.05);
+}
+
+#credit-info-btn i {
+    font-size: 22px;
+}
+
+/* Credit Modal */
+#credit-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    width: 400px;
+    max-width: calc(100% - 40px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 400;
+}
+
+#credit-modal.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+#credit-modal-glass {
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.1),
+        rgba(34, 34, 34, 0.16) 0px 4px 9px,
+        rgba(34, 34, 34, 0.2) 0px 2px 24px inset,
+        rgba(255, 255, 255, 0.2) 0px -2px 24px inset;
+    backdrop-filter: url('#liquid-glass-filter');
+    -webkit-backdrop-filter: url('#liquid-glass-filter');
+}
+
+#credit-modal-content {
+    position: relative;
+    z-index: 1;
+    padding: 24px;
+    color: white;
+}
+
+#credit-modal-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+#credit-modal-text-desktop,
+#credit-modal-text-mobile {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    opacity: 0.9;
+}
+
+#credit-modal-text-desktop a,
+#credit-modal-text-mobile a {
+    color: white;
+    text-decoration: underline;
+}
+
+#credit-modal-text-mobile {
+    display: none;
+}
+
+#credit-modal-close {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    width: 100%;
+}
+
+#credit-modal-close:hover {
+    background-color: #1976D2;
+}
+
+/* Show modal blur overlay */
+body.credit-modal-open #blur-overlay {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 /* Mobile Responsiveness */
 @media screen and (max-width: 700px) {
-    /* Reduce font sizes */
+    /* Reduce font sizes and stack time text */
     #time-text {
         font-size: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    /* Temperature display on mobile */
+    #temperature-display {
+        top: calc(8% + 5.5rem);
+        font-size: 1.5rem;
+    }
+
+    /* City name on second line */
+    #city-name-container {
+        display: block;
+        text-align: center;
+    }
+
+    /* Center the city input on mobile - keep absolute but center it */
+    #city-input {
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+    }
+
+    /* Center city dropdown on mobile */
+    #city-dropdown {
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
     }
 
     .city-option,
     .city-loading {
         font-size: 1.5rem;
+        text-align: center;
     }
 
     /* Center music player on mobile */
@@ -622,5 +867,28 @@ input:checked + .slider:before {
 
     #time-travel-done .done-icon {
         display: block;
+    }
+
+    /* On mobile, show only info icon in bottom right */
+    #credit {
+        right: 20px;
+        bottom: 20px;
+    }
+
+    #credit-text {
+        display: none;
+    }
+
+    /* Show full message in modal on mobile */
+    #credit-modal-text-desktop {
+        display: none;
+    }
+
+    #credit-modal-text-mobile {
+        display: block;
+    }
+
+    #credit-modal-title {
+        display: none;
     }
 }

@@ -36,6 +36,7 @@
             <div id="city-dropdown"></div>
         </span>
     </div>
+    <div id="temperature-display"></div>
 
     <!-- Liquid Glass SVG Filter -->
     <svg color-interpolation-filters="sRGB" style="display: none">
@@ -71,6 +72,28 @@
         <i class="ph-fill ph-gear"></i>
     </button>
 
+    <!-- Credit -->
+    <div id="credit">
+        <button id="credit-info-btn">
+            <i class="ph-fill ph-info"></i>
+        </button>
+        <span id="credit-text">made by <a href="https://ananmay.net" target="_blank" rel="noopener noreferrer">Ananmay</a></span>
+    </div>
+
+    <!-- Credit Modal -->
+    <div id="credit-modal">
+        <div id="credit-modal-glass"></div>
+        <div id="credit-modal-content">
+            <h3 id="credit-modal-title">About This Project</h3>
+            <p id="credit-modal-text-desktop">No copyright infringement intended. All rights to Drake's music and imagery belong to their respective owners. I just like Drake's music.</p>
+            <div id="credit-modal-text-mobile">
+                <p>No copyright infringement intended. All rights to Drake's music and imagery belong to their respective owners. I just like Drake's music.</p>
+                <p style="margin-top: 12px;">made by <a href="https://ananmay.net" target="_blank" rel="noopener noreferrer">Ananmay</a></p>
+            </div>
+            <button id="credit-modal-close">Close</button>
+        </div>
+    </div>
+
     <!-- Settings Panel -->
     <div id="settings-panel">
         <div id="settings-glass"></div>
@@ -99,6 +122,14 @@
                     <input type="checkbox" id="setting-temperature">
                     <span class="slider round"></span>
                 </label>
+            </div>
+            <div class="setting-row setting-unit-row" id="setting-unit-row">
+                <span class="setting-label">Unit</span>
+                <div class="pill-toggle" id="unit-toggle">
+                    <button class="pill-option" data-unit="C">°C</button>
+                    <button class="pill-option" data-unit="F">°F</button>
+                    <div class="pill-indicator"></div>
+                </div>
             </div>
             <div class="setting-row">
                 <span class="setting-label"><i class="ph-fill ph-music-notes"></i>Easter Eggs</span>
@@ -153,10 +184,17 @@
         let audioPlayer = null;
         let currentSongPath = null;
 
+        // Temperature state
+        let selectedLat = null;
+        let selectedLng = null;
+        let hourlyTemperatures = null; // Array of 24 hourly temperatures
+
         // Settings state
         let settings = {
             exactTime: false,
             temperature: false,
+            temperatureUnit: null, // 'C', 'F', or null (auto)
+            userHasSetUnit: false, // Persists user unit preference
             musicEasterEggs: true,
             timeTravel: false
         };
@@ -301,6 +339,93 @@
             }
         }
 
+        // Temperature functions
+        async function fetchTemperature(lat, lng, timezone) {
+            try {
+                const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const response = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m&timezone=${encodeURIComponent(tz)}&forecast_days=1`
+                );
+                const data = await response.json();
+
+                if (data.hourly && data.hourly.temperature_2m) {
+                    hourlyTemperatures = data.hourly.temperature_2m;
+                    updateTemperatureDisplay();
+                }
+            } catch (error) {
+                console.error('Failed to fetch temperature:', error);
+                hourlyTemperatures = null;
+                updateTemperatureDisplay();
+            }
+        }
+
+        function getTemperatureUnit() {
+            // If user has manually set a preference, use that
+            if (settings.userHasSetUnit && settings.temperatureUnit) {
+                return settings.temperatureUnit;
+            }
+
+            // Auto-detect based on country
+            if (country && country.toLowerCase().includes('united states')) {
+                return 'F';
+            }
+
+            return 'C';
+        }
+
+        function updateTemperatureDisplay() {
+            const display = document.getElementById('temperature-display');
+            if (!display) return;
+
+            if (!settings.temperature || !hourlyTemperatures) {
+                display.classList.remove('visible');
+                return;
+            }
+
+            const time = getCurrentTime();
+            const hourIndex = time.hour;
+            const tempCelsius = hourlyTemperatures[hourIndex];
+
+            if (tempCelsius === undefined || tempCelsius === null) {
+                display.classList.remove('visible');
+                return;
+            }
+
+            const unit = getTemperatureUnit();
+            let displayTemp;
+
+            if (unit === 'F') {
+                displayTemp = Math.round((tempCelsius * 9/5) + 32);
+            } else {
+                displayTemp = Math.round(tempCelsius);
+            }
+
+            display.textContent = `${displayTemp}°${unit}`;
+            display.classList.add('visible');
+        }
+
+        function updateUnitToggleUI() {
+            const unitRow = document.getElementById('setting-unit-row');
+            const toggle = document.getElementById('unit-toggle');
+
+            if (!unitRow || !toggle) return;
+
+            // Show/hide unit row based on temperature toggle
+            if (settings.temperature) {
+                unitRow.classList.add('visible');
+            } else {
+                unitRow.classList.remove('visible');
+            }
+
+            // Update active state
+            const unit = getTemperatureUnit();
+            toggle.setAttribute('data-selected', unit);
+
+            toggle.querySelectorAll('.pill-option').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.unit === unit);
+            });
+        }
+
         let currentBg = 'bgs/day.png';
 
         function updateDisplay() {
@@ -339,6 +464,9 @@
                 // Check for easter egg
                 checkEasterEgg(hour, city, country);
             }
+
+            // Update temperature display
+            updateTemperatureDisplay();
         }
 
         async function getLocation(lat, lon) {
@@ -359,13 +487,22 @@
 
         function init() {
             loadSettings();
+            updateUnitToggleUI();
             if ('geolocation' in navigator) {
                 navigator.geolocation.getCurrentPosition(
                     async (position) => {
-                        const location = await getLocation(position.coords.latitude, position.coords.longitude);
+                        selectedLat = position.coords.latitude;
+                        selectedLng = position.coords.longitude;
+                        const location = await getLocation(selectedLat, selectedLng);
                         city = location.city;
                         country = location.country;
                         updateDisplay();
+                        updateUnitToggleUI();
+
+                        // Fetch temperature if enabled
+                        if (settings.temperature) {
+                            fetchTemperature(selectedLat, selectedLng, selectedTimezone);
+                        }
                     },
                     (error) => {
                         console.error('Geolocation error:', error);
@@ -412,6 +549,8 @@
         async function selectCity(cityData) {
             city = cityData.name;
             country = cityData.countryName;
+            selectedLat = parseFloat(cityData.lat);
+            selectedLng = parseFloat(cityData.lng);
             // Reset time travel mode when city changes
             debugMode = false;
             // Try to get timezone from search result, otherwise fetch it
@@ -423,6 +562,12 @@
             closeCitySearch();
             updateDisplay();
             updateTimeTravelSlider();
+            updateUnitToggleUI();
+
+            // Fetch new temperature for new location
+            if (settings.temperature && selectedLat && selectedLng) {
+                fetchTemperature(selectedLat, selectedLng, selectedTimezone);
+            }
         }
 
         let isSearchMode = false;
@@ -515,9 +660,26 @@
         // Event listeners
         document.getElementById('city-name').addEventListener('click', openCitySearch);
 
+        // Toggle temperature unit on click
+        document.getElementById('temperature-display').addEventListener('click', () => {
+            const currentUnit = getTemperatureUnit();
+            settings.temperatureUnit = currentUnit === 'C' ? 'F' : 'C';
+            settings.userHasSetUnit = true;
+            saveSettings();
+            updateUnitToggleUI();
+            updateTemperatureDisplay();
+        });
+
         document.getElementById('blur-overlay').addEventListener('click', () => {
-            closeCitySearch();
-            closeSettings();
+            if (isCreditModalOpen) {
+                closeCreditModal();
+            }
+            if (isSearchMode) {
+                closeCitySearch();
+            }
+            if (isSettingsOpen) {
+                closeSettings();
+            }
         });
 
         // Play/Pause toggle button
@@ -616,7 +778,27 @@
         document.getElementById('setting-temperature').addEventListener('change', (e) => {
             settings.temperature = e.target.checked;
             saveSettings();
-            // Does nothing for now
+            updateUnitToggleUI();
+
+            if (settings.temperature && selectedLat && selectedLng) {
+                fetchTemperature(selectedLat, selectedLng, selectedTimezone);
+            } else {
+                updateTemperatureDisplay();
+            }
+        });
+
+        // Unit toggle pill
+        document.getElementById('unit-toggle').addEventListener('click', (e) => {
+            const btn = e.target.closest('.pill-option');
+            if (!btn) return;
+
+            const unit = btn.dataset.unit;
+            settings.temperatureUnit = unit;
+            settings.userHasSetUnit = true;
+            saveSettings();
+
+            updateUnitToggleUI();
+            updateTemperatureDisplay();
         });
 
         document.getElementById('setting-music-easter-eggs').addEventListener('change', (e) => {
@@ -656,6 +838,33 @@
 
         // Done button closes time travel panel
         document.getElementById('time-travel-done').addEventListener('click', closeTimeTravel);
+
+        // Credit modal functionality
+        let isCreditModalOpen = false;
+
+        function openCreditModal() {
+            isCreditModalOpen = true;
+            document.body.classList.add('credit-modal-open');
+            document.getElementById('credit-modal').classList.add('visible');
+            document.getElementById('blur-overlay').classList.add('active');
+        }
+
+        function closeCreditModal() {
+            isCreditModalOpen = false;
+            document.body.classList.remove('credit-modal-open');
+            document.getElementById('credit-modal').classList.remove('visible');
+            // Only remove blur-overlay if nothing else is open
+            if (!isSettingsOpen && !isSearchMode) {
+                document.getElementById('blur-overlay').classList.remove('active');
+            }
+        }
+
+        document.getElementById('credit-info-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openCreditModal();
+        });
+
+        document.getElementById('credit-modal-close').addEventListener('click', closeCreditModal);
 
         init();
     </script>
