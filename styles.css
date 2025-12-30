@@ -541,7 +541,7 @@ input:checked + .slider:before {
     min-width: 350px;
     height: 72px;
     transition: transform 0.4s ease;
-    z-index: 200;
+    z-index: 1000;
 }
 
 #time-travel-panel.visible {
@@ -582,7 +582,7 @@ input:checked + .slider:before {
     font-size: 0.9rem;
     font-weight: 500;
     white-space: nowrap;
-    min-width: 130px;
+    min-width: 100px;
 }
 
 #debug-slider {
