@@ -4,9 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name='viewport' content='width=device-width, initial-scale=1.0, viewport-fit=cover'>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#000">
     <title>Drake Clock</title>
     <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
@@ -97,29 +94,6 @@
         </div>
     </div>
 
-    <!-- Download App Modal -->
-    <div id="download-modal">
-        <div id="download-modal-glass"></div>
-        <div id="download-modal-content">
-            <h3 id="download-modal-title">Download App</h3>
-            <div id="download-modal-text">
-                <p><strong>iPhone / iPad</strong></p>
-                <ol>
-                    <li>Tap the <i class="ph ph-share-fat"></i> Share button in Safari</li>
-                    <li>Scroll and tap "Add to Home Screen"</li>
-                    <li>Tap "Add" in the top right</li>
-                </ol>
-                <p style="margin-top: 16px;"><strong>Android</strong></p>
-                <ol>
-                    <li>Tap the <i class="ph ph-dots-three-vertical"></i> menu in Chrome</li>
-                    <li>Tap "Add to Home screen"</li>
-                    <li>Tap "Add"</li>
-                </ol>
-            </div>
-            <button id="download-modal-close">Done</button>
-        </div>
-    </div>
-
     <!-- Settings Panel -->
     <div id="settings-panel">
         <div id="settings-glass"></div>
@@ -163,10 +137,6 @@
                     <input type="checkbox" id="setting-music-easter-eggs" checked>
                     <span class="slider round"></span>
                 </label>
-            </div>
-            <div class="setting-row setting-row-clickable" id="download-app-row">
-                <span class="setting-label"><i class="ph ph-download-simple"></i>Download App</span>
-                <i class="ph ph-caret-right"></i>
             </div>
         </div>
     </div>
@@ -339,12 +309,17 @@
             stopEasterEgg();
         }
 
-        function showMusicPlayer(songPath) {
+        function showMusicPlayer(songPath, startPaused = false) {
             const metadata = songMetadata[songPath];
             document.getElementById('player-album').src = metadata.art;
             document.getElementById('player-title').textContent = metadata.title;
             document.getElementById('player-artist').textContent = metadata.artist;
-            document.getElementById('player-toggle').classList.remove('paused');
+            const toggle = document.getElementById('player-toggle');
+            if (startPaused) {
+                toggle.classList.add('paused');
+            } else {
+                toggle.classList.remove('paused');
+            }
             document.getElementById('music-player').classList.add('visible');
         }
 
@@ -360,6 +335,9 @@
             audioPlayer = new Audio(songPath);
             currentSongPath = songPath;
 
+            // Show player in paused state initially (autoplay may be blocked)
+            showMusicPlayer(songPath, true);
+
             // Add event listeners to sync button state with actual playback
             const playerToggleBtn = document.getElementById('player-toggle');
             audioPlayer.addEventListener('play', () => {
@@ -373,17 +351,10 @@
                 hideMusicPlayer();
             });
 
-            // Handle autoplay blocking on mobile
-            const playPromise = audioPlayer.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    // Autoplay was blocked - show player in paused state
-                    console.log('Autoplay blocked, waiting for user interaction');
-                    playerToggleBtn.classList.add('paused');
-                });
-            }
-
-            showMusicPlayer(songPath);
+            // Attempt to play - if successful, 'play' event will update button state
+            audioPlayer.play().catch(error => {
+                console.log('Autoplay blocked, waiting for user interaction');
+            });
         }
 
         function stopEasterEgg() {
@@ -904,6 +875,7 @@
         // Time Travel panel toggle
         function openTimeTravel() {
             isTimeTravelOpen = true;
+            closeSettings();
             document.body.classList.add('time-travel-mode');
             document.getElementById('time-travel-panel').classList.add('visible');
         }
@@ -959,36 +931,6 @@
         });
 
         document.getElementById('credit-modal-close').addEventListener('click', closeCreditModal);
-
-        // Download modal functionality
-        let isDownloadModalOpen = false;
-
-        function openDownloadModal() {
-            isDownloadModalOpen = true;
-            closeSettings(); // Close settings panel first
-            document.body.classList.add('download-modal-open');
-            document.getElementById('download-modal').classList.add('visible');
-            document.getElementById('blur-overlay').classList.add('active');
-        }
-
-        function closeDownloadModal() {
-            isDownloadModalOpen = false;
-            document.body.classList.remove('download-modal-open');
-            document.getElementById('download-modal').classList.remove('visible');
-            if (!isSettingsOpen && !isSearchMode && !isCreditModalOpen) {
-                document.getElementById('blur-overlay').classList.remove('active');
-            }
-        }
-
-        document.getElementById('download-app-row').addEventListener('click', openDownloadModal);
-        document.getElementById('download-modal-close').addEventListener('click', closeDownloadModal);
-
-        // Update blur overlay click handler to close download modal too
-        document.getElementById('blur-overlay').addEventListener('click', () => {
-            if (isDownloadModalOpen) {
-                closeDownloadModal();
-            }
-        });
 
         init();
     </script>

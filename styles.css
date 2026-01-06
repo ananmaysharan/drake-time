@@ -779,93 +779,9 @@ input:checked + .slider:before {
 }
 
 /* Show modal blur overlay */
-body.credit-modal-open #blur-overlay,
-body.download-modal-open #blur-overlay {
+body.credit-modal-open #blur-overlay {
     opacity: 1;
     pointer-events: auto;
-}
-
-/* Download App Modal */
-#download-modal {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.95);
-    width: 400px;
-    max-width: calc(100% - 40px);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    z-index: 400;
-}
-
-#download-modal.visible {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translate(-50%, -50%) scale(1);
-}
-
-#download-modal-glass {
-    position: absolute;
-    inset: 0;
-    border-radius: 20px;
-    box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.1),
-        rgba(34, 34, 34, 0.16) 0px 4px 9px,
-        rgba(34, 34, 34, 0.2) 0px 2px 24px inset,
-        rgba(255, 255, 255, 0.2) 0px -2px 24px inset;
-    backdrop-filter: url('#liquid-glass-filter');
-    -webkit-backdrop-filter: url('#liquid-glass-filter');
-}
-
-#download-modal-content {
-    position: relative;
-    z-index: 1;
-    padding: 24px;
-    color: white;
-}
-
-#download-modal-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin-bottom: 16px;
-}
-
-#download-modal-text {
-    font-size: 0.95rem;
-    line-height: 1.6;
-    margin-bottom: 20px;
-    opacity: 0.9;
-}
-
-#download-modal-text ol {
-    margin-left: 20px;
-    margin-top: 8px;
-}
-
-#download-modal-text li {
-    margin-bottom: 4px;
-}
-
-#download-modal-text i {
-    vertical-align: middle;
-}
-
-#download-modal-close {
-    background-color: #2196F3;
-    color: white;
-    border: none;
-    border-radius: 12px;
-    padding: 10px 20px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    width: 100%;
-}
-
-#download-modal-close:hover {
-    background-color: #1976D2;
 }
 
 /* Mobile Responsiveness */
