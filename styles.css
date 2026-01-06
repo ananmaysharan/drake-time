@@ -538,7 +538,7 @@ input:checked + .slider:before {
     bottom: 20px;
     left: 50%;
     transform: translate(-50%, 150%);
-    min-width: 350px;
+    min-width: 400px;
     height: 72px;
     transition: transform 0.4s ease;
     z-index: 1000;
