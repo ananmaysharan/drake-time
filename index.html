@@ -30,7 +30,7 @@
 <body>
     <div id="background"></div>
     <div id="blur-overlay"></div>
-    <img id="drake" src="drake.png" alt="Drake">
+    <img id="drake" src="drake.webp" alt="Drake">
     <div id="time-text">
         <span id="time-prefix"></span><span id="city-name-container"><span id="city-name"></span>
             <div id="city-dropdown"></div>
@@ -168,12 +168,12 @@
 
         // Song metadata for player UI
         const songMetadata = {
-            'songs/Drake - 4pm in Calabasas.mp3': { title: '4pm in Calabasas', artist: 'Drake', art: 'album-art/4pm-in-calabasas.jpg' },
-            'songs/Drake - 5 Am in Toronto.mp3': { title: '5 Am in Toronto', artist: 'Drake', art: 'album-art/5am-in-toronto.jpg' },
-            'songs/Drake - 6PM In New York.mp3': { title: '6PM In New York', artist: 'Drake', art: 'album-art/6pm-in-new-york.jpg' },
-            'songs/Drake - 7am On Bridle Path.mp3': { title: '7am On Bridle Path', artist: 'Drake', art: 'album-art/7am-on-bridle-path.jpg' },
-            'songs/Drake - 8am in Charlotte.mp3': { title: '8am in Charlotte', artist: 'Drake', art: 'album-art/8am-in-charlotte.jpg' },
-            'songs/Drake - 9am In Dallas.mp3': { title: '9am In Dallas', artist: 'Drake', art: 'album-art/9am-in-dallas.jpg' }
+            'songs/Drake - 4pm in Calabasas.mp3': { title: '4pm in Calabasas', artist: 'Drake', art: 'album-art/4pm-in-calabasas.webp' },
+            'songs/Drake - 5 Am in Toronto.mp3': { title: '5 Am in Toronto', artist: 'Drake', art: 'album-art/5am-in-toronto.webp' },
+            'songs/Drake - 6PM In New York.mp3': { title: '6PM In New York', artist: 'Drake', art: 'album-art/6pm-in-new-york.webp' },
+            'songs/Drake - 7am On Bridle Path.mp3': { title: '7am On Bridle Path', artist: 'Drake', art: 'album-art/7am-on-bridle-path.webp' },
+            'songs/Drake - 8am in Charlotte.mp3': { title: '8am in Charlotte', artist: 'Drake', art: 'album-art/8am-in-charlotte.webp' },
+            'songs/Drake - 9am In Dallas.mp3': { title: '9am In Dallas', artist: 'Drake', art: 'album-art/9am-in-dallas.webp' }
         };
 
         let city = null;
@@ -201,6 +201,12 @@
         let isSettingsOpen = false;
         let isTimeTravelOpen = false;
 
+        // Slider debounce state
+        let sliderDebounceTimeout = null;
+        let pendingBackgroundUpdate = null;
+        let isSliderMoving = false;
+        const SLIDER_SETTLE_DELAY = 150; // ms to wait before triggering transitions
+
         function loadSettings() {
             const saved = localStorage.getItem('drakeClockSettings');
             if (saved) {
@@ -223,10 +229,10 @@
         }
 
         function getBackground(hour) {
-            if (hour >= 6 && hour <= 11) return 'bgs/morning.png';
-            if (hour >= 12 && hour <= 17) return 'bgs/day.png';
-            if (hour >= 18 && hour <= 20) return 'bgs/evening.png';
-            return 'bgs/night.png';
+            if (hour >= 6 && hour <= 11) return 'bgs/morning.webp';
+            if (hour >= 12 && hour <= 17) return 'bgs/day.webp';
+            if (hour >= 18 && hour <= 20) return 'bgs/evening.webp';
+            return 'bgs/night.webp';
         }
 
         function formatTime(hour, minutes) {
@@ -426,17 +432,36 @@
             });
         }
 
-        let currentBg = 'bgs/day.png';
+        let currentBg = 'bgs/day.webp';
 
-        function updateDisplay() {
+        // Immediate updates: time text and temperature (called on every slider tick)
+        function updateTimeDisplay() {
+            const time = getCurrentTime();
+            const hour = time.hour;
+
+            if (city) {
+                document.getElementById('time-prefix').textContent = `It's ${formatTime(hour, time.minutes)} in `;
+                document.getElementById('city-name').textContent = city;
+            }
+
+            updateTemperatureDisplay();
+        }
+
+        // Deferred updates: background transitions and easter eggs (debounced during slider movement)
+        function updateBackgroundAndEasterEgg() {
             const time = getCurrentTime();
             const hour = time.hour;
             const bg = document.getElementById('background');
             const newBg = getBackground(hour);
 
             if (newBg !== currentBg) {
+                // Cancel any pending transition from previous slider position
+                if (pendingBackgroundUpdate) {
+                    clearTimeout(pendingBackgroundUpdate);
+                    pendingBackgroundUpdate = null;
+                }
+
                 // Crossfade: set new image on ::after, fade it in, then swap
-                const afterStyle = window.getComputedStyle(bg, '::after');
                 bg.style.setProperty('--next-bg', `url('${newBg}')`);
 
                 // Use a temp style element to update ::after background
@@ -450,23 +475,28 @@
 
                 styleEl.textContent = `#background::after { background-image: url('${newBg}'); opacity: 1; }`;
 
-                setTimeout(() => {
-                    bg.style.backgroundImage = `url('${newBg}')`;
-                    styleEl.textContent = `#background::after { opacity: 0; }`;
-                    currentBg = newBg;
+                pendingBackgroundUpdate = setTimeout(() => {
+                    // Only apply if this is still the desired background
+                    const currentDesiredBg = getBackground(getCurrentTime().hour);
+                    if (currentDesiredBg === newBg) {
+                        bg.style.backgroundImage = `url('${newBg}')`;
+                        styleEl.textContent = `#background::after { opacity: 0; }`;
+                        currentBg = newBg;
+                    }
+                    pendingBackgroundUpdate = null;
                 }, 1000);
             }
 
-            if (city) {
-                document.getElementById('time-prefix').textContent = `It's ${formatTime(hour, time.minutes)} in `;
-                document.getElementById('city-name').textContent = city;
-
-                // Check for easter egg
+            // Check for easter egg (only when not actively sliding)
+            if (city && !isSliderMoving) {
                 checkEasterEgg(hour, city, country);
             }
+        }
 
-            // Update temperature display
-            updateTemperatureDisplay();
+        // Full update: both immediate and deferred (used for non-slider updates)
+        function updateDisplay() {
+            updateTimeDisplay();
+            updateBackgroundAndEasterEgg();
         }
 
         async function getLocation(lat, lon) {
@@ -721,7 +751,19 @@
                 debugMode = true;
                 debugHour = parseInt(e.target.value);
                 label.textContent = `Time Travel: ${formatTime(debugHour)}`;
-                updateDisplay();
+
+                // Immediate: update time text only (keeps UI responsive)
+                updateTimeDisplay();
+
+                // Mark slider as moving
+                isSliderMoving = true;
+
+                // Deferred: background and easter eggs (debounced)
+                clearTimeout(sliderDebounceTimeout);
+                sliderDebounceTimeout = setTimeout(() => {
+                    isSliderMoving = false;
+                    updateBackgroundAndEasterEgg();
+                }, SLIDER_SETTLE_DELAY);
             });
         }
 
