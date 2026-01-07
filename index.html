@@ -574,7 +574,7 @@
             if (!query || query.length < 2) return [];
             try {
                 const response = await fetch(
-                    `https://secure.geonames.org/searchJSON?q=${encodeURIComponent(query)}&maxRows=5&username=${GEONAMES_USERNAME}&featureClass=P&style=FULL`
+                    `https://secure.geonames.org/searchJSON?q=${encodeURIComponent(query)}&maxRows=5&username=${GEONAMES_USERNAME}&featureClass=P&style=FULL&fuzzy=0.6&orderby=population`
                 );
                 const data = await response.json();
                 return data.geonames || [];
