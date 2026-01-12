@@ -476,25 +476,28 @@
             const bg = document.getElementById('background');
             const newBg = getBackground(hour);
 
+            // Get or create the transition style element
+            const styleId = 'bg-transition-style';
+            let styleEl = document.getElementById(styleId);
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = styleId;
+                document.head.appendChild(styleEl);
+            }
+
+            // Cancel any pending transition AND reset ::after state
+            if (pendingBackgroundUpdate) {
+                clearTimeout(pendingBackgroundUpdate);
+                pendingBackgroundUpdate = null;
+                // Reset ::after to clean state (opacity 0)
+                styleEl.textContent = `#background::after { opacity: 0; }`;
+            }
+
             if (newBg !== currentBg) {
-                // Cancel any pending transition from previous slider position
-                if (pendingBackgroundUpdate) {
-                    clearTimeout(pendingBackgroundUpdate);
-                    pendingBackgroundUpdate = null;
-                }
+                // Force a reflow to ensure opacity reset is applied before starting new transition
+                void bg.offsetWidth;
 
                 // Crossfade: set new image on ::after, fade it in, then swap
-                bg.style.setProperty('--next-bg', `url('${newBg}')`);
-
-                // Use a temp style element to update ::after background
-                const styleId = 'bg-transition-style';
-                let styleEl = document.getElementById(styleId);
-                if (!styleEl) {
-                    styleEl = document.createElement('style');
-                    styleEl.id = styleId;
-                    document.head.appendChild(styleEl);
-                }
-
                 styleEl.textContent = `#background::after { background-image: url('${newBg}'); opacity: 1; }`;
 
                 pendingBackgroundUpdate = setTimeout(() => {
@@ -507,6 +510,10 @@
                     }
                     pendingBackgroundUpdate = null;
                 }, 1000);
+            } else {
+                // Ensure ::after is hidden when no transition needed
+                // This handles edge cases where ::after might be stuck visible
+                styleEl.textContent = `#background::after { opacity: 0; }`;
             }
 
             // Check for easter egg (only when not actively sliding)
